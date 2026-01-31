@@ -59,3 +59,61 @@ if uploaded_file is not None:
 
     # Display the plot in Streamlit
     st.pyplot(fig)
+    # ------------------------------------------------------------
+    # 6. Monthly Timeline (The Line Chart)
+    # ------------------------------------------------------------
+    st.title("Monthly Timeline")
+    
+    # Logic:
+    # 1. Create a "Month-Year" column (e.g., "January-2026")
+    # 2. Group by Year, MonthNum, and MonthName (to keep sorting correct)
+    # 3. Count messages
+    
+    timeline = df.groupby(['year', 'month_num', 'month']).count()['message'].reset_index()
+    
+    # Merge Year and Month into a single string for the X-axis
+    time = []
+    for i in range(timeline.shape[0]):
+        time.append(timeline['month'][i] + "-" + str(timeline['year'][i]))
+        
+    timeline['time'] = time
+    
+    # Plotting
+    fig, ax = plt.subplots()
+    
+    # Plot the line (Year-Month on X, Message Count on Y)
+    ax.plot(timeline['time'], timeline['message'], color='green')
+    
+    # Make X-axis labels readable (vertical)
+    plt.xticks(rotation='vertical')
+    
+    st.pyplot(fig)
+
+    # ------------------------------------------------------------
+    # 7. Activity Heatmap (Busy Day & Busy Month)
+    # ------------------------------------------------------------
+    st.title("Activity Map")
+    
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.header("Most Busy Day")
+        
+        # Count messages per day name (Mon, Tue, Wed...)
+        busy_day = df['day_name'].value_counts()
+        
+        fig, ax = plt.subplots()
+        ax.bar(busy_day.index, busy_day.values, color='purple')
+        plt.xticks(rotation='vertical')
+        st.pyplot(fig)
+
+    with col2:
+        st.header("Most Busy Month")
+        
+        # Count messages per month name
+        busy_month = df['month'].value_counts()
+        
+        fig, ax = plt.subplots()
+        ax.bar(busy_month.index, busy_month.values, color='orange')
+        plt.xticks(rotation='vertical')
+        st.pyplot(fig)
