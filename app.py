@@ -1,5 +1,8 @@
+
 import streamlit as st
 import preprocessor
+import pandas as pd
+from collections import Counter
 
 # Set page title
 st.set_page_config(page_title="WhatsApp Analyzer")
@@ -117,3 +120,65 @@ if uploaded_file is not None:
         ax.bar(busy_month.index, busy_month.values, color='orange')
         plt.xticks(rotation='vertical')
         st.pyplot(fig)
+
+        # ------------------------------------------------------------
+    # 8. Word Cloud (The Vibe Check)
+    # ------------------------------------------------------------
+    st.title("Word Cloud")
+    
+    # 1. Combine all messages into a single giant string
+    # We want to filter out "Media omitted" messages first
+    temp_df = df[df['message'] != 'Media omitted\n']
+    
+    # If you have a specific file for stop words (like 'hinglish.txt'), you would load it here.
+    # For now, we rely on the library's built-in filtering, but we add our own small list.
+    
+    from wordcloud import WordCloud
+    
+    # Generate the cloud
+    wc = WordCloud(width=500, height=500, min_font_size=10, background_color='white')
+    
+    # We join all messages with a space to make one big text blob
+    df_wc = wc.generate(temp_df['message'].str.cat(sep=" "))
+    
+    # Display it
+    fig, ax = plt.subplots()
+    ax.imshow(df_wc)
+    ax.axis("off") # Turn off the X and Y axis numbers (they look ugly on an image)
+    st.pyplot(fig)
+
+    # ------------------------------------------------------------
+    # 9. Emoji Analysis
+    # ------------------------------------------------------------
+    st.title("Emoji Analysis")
+    
+    import emoji
+    from collections import Counter
+    
+    # Logic: Go through every message, find emojis, store them in a list
+    emojis = []
+    for message in df['message']:
+        # This list comprehension extracts every emoji found in the message string
+        emojis.extend([c for c in message if c in emoji.EMOJI_DATA])
+    
+    # Create a DataFrame for the counts
+    emoji_df = pd.DataFrame(Counter(emojis).most_common(len(Counter(emojis))))
+    
+    # Check if there are any emojis at all
+    if not emoji_df.empty:
+        emoji_df.columns = ['Emoji', 'Count']
+        
+        col1, col2 = st.columns(2)
+        
+        # Show the raw table
+        with col1:
+            st.dataframe(emoji_df)
+            
+        # Show a Pie Chart of top 5 emojis
+        with col2:
+            fig, ax = plt.subplots()
+            # formatting: autopct shows the percentage
+            ax.pie(emoji_df['Count'].head(), labels=emoji_df['Emoji'].head(), autopct="%0.2f")
+            st.pyplot(fig)
+    else:
+        st.text("No emojis found in this chat.")
