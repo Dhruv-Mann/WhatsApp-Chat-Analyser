@@ -39,3 +39,23 @@ if uploaded_file is not None:
 
     # 4. Display the Dataframe (to verify it works)
     st.dataframe(df)
+
+    # 5. Finding the busiest users (The Activity Map)
+    st.title("Most Busy Users")
+    
+    # Get the top 5 users
+    top_users = df['user'].value_counts().head()
+    
+    import matplotlib.pyplot as plt
+
+    # Create the figure (the canvas) and the axes (the chart)
+    fig, ax = plt.subplots()
+    
+    # Create a bar chart
+    ax.bar(top_users.index, top_users.values, color='#25D366') # WhatsApp Green!
+    
+    # Rotate labels so they don't overlap
+    plt.xticks(rotation='vertical')
+
+    # Display the plot in Streamlit
+    st.pyplot(fig)
