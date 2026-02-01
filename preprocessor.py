@@ -13,8 +13,11 @@ def preprocess(data):
 
 
     df['year'] = df['message_date'].dt.year
+    df['month_num'] = df['message_date'].dt.month  # <--- NEW: For sorting (1, 2, 3...)
     df['month'] = df['message_date'].dt.month_name()
     df['day'] = df['message_date'].dt.day
+    df['day_name'] = df['message_date'].dt.day_name() # <--- NEW: For "Busy Days" later (Mon, Tue...)
+    df['only_date'] = df['message_date'].dt.date
     df['hour'] = df['message_date'].dt.hour
     df['minute'] = df['message_date'].dt.minute
 
