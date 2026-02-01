@@ -24,3 +24,9 @@ A comprehensive Data Science project that transforms raw WhatsApp chat exports (
 1. Clone this repository:
    ```bash
    git clone [https://github.com/Dhruv-Mann/WhatsApp-Chat-Analyser.git](https://github.com/Dhruv-Mann/WhatsApp-Chat-Analyser.git)
+
+   ## 🎥 Demo Video
+
+[![Watch the video](https://img.youtube.com/vi/b_WvxQwtrsM/maxresdefault.jpg)](https://youtu.be/b_WvxQwtrsM)
+
+> **Click the image above** to watch the full walkthrough of the features, including the Dark Mode UI, Activity Maps, and User Filtering.
