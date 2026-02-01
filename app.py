@@ -1,40 +1,73 @@
+"""Streamlit dashboard for WhatsApp chat analytics.
+
+Why this structure:
+- Streamlit provides fast iteration for data apps without a separate frontend stack.
+- Preprocessing and analytics are separated into modules for clarity and reusability.
+"""
+
 import streamlit as st
 import preprocessor, helper
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 # --------------------------------------------------------------------------------
-# 1. PAGE CONFIGURATION & STYLING
+# 1. LINEAR THEME CONFIGURATION
 # --------------------------------------------------------------------------------
-st.set_page_config(page_title="WhatsApp Chat Analyzer", layout="wide", page_icon="📊")
+# Page config must be set first in Streamlit to avoid runtime warnings.
+st.set_page_config(page_title="WhatsApp Analyzer", layout="wide", page_icon="⚡")
 
-# Custom CSS to make the UI look professional (Dark Mode friendly)
+# The "Linear" Design System (CSS Injection)
+# Why: Streamlit's default theme is neutral; custom CSS aligns the UI with a modern product look.
 st.markdown("""
     <style>
-    /* Global Font */
+    /* 1. MAIN BACKGROUND: The 'Linear' Void Black */
+    .stApp {
+        background-color: #08090A;
+    }
+    
+    /* 2. TYPOGRAPHY: Clean, Sans-Serif, High Contrast */
     html, body, [class*="css"] {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #E3E3E3;
     }
-    
-    /* Metrics Cards Styling */
-    div.css-1r6slb0.e1tzin5v2 {
-        background-color: #0E1117;
-        border: 1px solid #31333F;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Headers */
     h1, h2, h3 {
-        color: #00CC66; /* WhatsApp Green */
-        font-weight: 700;
+        color: #F7F8F8;
+        font-weight: 600;
+        letter-spacing: -0.5px;
     }
     
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #171B26;
-        border-right: 1px solid #31333F;
+    /* 3. METRIC CARDS: Flat, Bordered, No Shadow */
+    div[data-testid="stMetric"] {
+        background-color: #121417;
+        border: 1px solid #22252B;
+        padding: 16px;
+        border-radius: 6px; /* Linear uses slightly tighter radius */
+        color: #E3E3E3;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #8A8F98; /* Muted text for labels */
+        font-size: 14px;
+    }
+    div[data-testid="stMetricValue"] {
+        color: #F7F8F8;
+        font-size: 24px;
+        font-weight: 600;
+    }
+    
+    /* 4. SIDEBAR: Slightly Lighter Dark */
+    section[data-testid="stSidebar"] {
+        background-color: #0E1013;
+        border-right: 1px solid #22252B;
+    }
+    
+    /* 5. PLOTS: Transparent backgrounds to blend in */
+    div[data-testid="stMarkdownContainer"] p {
+        color: #8A8F98;
+    }
+    
+    /* Remove default top padding */
+    .block-container {
+        padding-top: 2rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -42,140 +75,127 @@ st.markdown("""
 # --------------------------------------------------------------------------------
 # 2. SIDEBAR
 # --------------------------------------------------------------------------------
-st.sidebar.title("Analyze Your Chat 🚀")
-st.sidebar.markdown("Upload your WhatsApp chat export (`.txt`) to get started.")
+# Sidebar establishes a clear entry point for input and keeps controls persistent.
+st.sidebar.markdown("### Workspace")
+st.sidebar.markdown("Analytics Dashboard")
+st.sidebar.markdown("---")
 
-uploaded_file = st.sidebar.file_uploader("Choose a file")
+uploaded_file = st.sidebar.file_uploader("Import Export")
 
 # --------------------------------------------------------------------------------
-# 3. MAIN DASHBOARD LOGIC
+# 3. DASHBOARD LOGIC
 # --------------------------------------------------------------------------------
+# Guard clause prevents running analytics without data and avoids empty-state errors.
 if uploaded_file is not None:
     bytes_data = uploaded_file.getvalue()
     data = bytes_data.decode("utf-8")
     
-    # Preprocessing
+    # Preprocess raw text into a structured DataFrame for consistent downstream analysis.
     df = preprocessor.preprocess(data)
 
-    # User Selection Logic
+    # Filter Logic
+    # Why: Group notifications are system events, not users; remove to keep stats meaningful.
     user_list = df['user'].unique().tolist()
     if 'group_notification' in user_list:
         user_list.remove('group_notification')
     user_list.sort()
     user_list.insert(0, "Overall")
 
-    selected_user = st.sidebar.selectbox("Show analysis wrt", user_list)
+    selected_user = st.sidebar.selectbox("Filter View", user_list)
 
-    if st.sidebar.button("Show Analysis"):
+    # Button gate keeps heavier computation from running on every UI change.
+    if st.sidebar.button("Generate Report", type="primary"): 
+        # type="primary" gives it that nice button highlight
+        
+        # --- HEADER ---
+        st.markdown(f"# Project: {selected_user} Analysis")
+        st.markdown(f"**Status:** Active • **File:** `_chat.txt`")
+        st.markdown("---")
 
-        # --- TOP METRICS SECTION ---
-        st.title("Top Statistics")
+        # --- KEY METRICS (The Linear Cards) ---
+        # Why top-line metrics: Gives an immediate summary before deep dives.
         num_messages, words, num_media_messages, num_links = helper.fetch_stats(selected_user, df)
         
-        # Use columns for a "Card" layout
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            st.metric("Total Messages", num_messages)
-        with col2:
-            st.metric("Total Words", words)
-        with col3:
-            st.metric("Media Shared", num_media_messages)
-        with col4:
-            st.metric("Links Shared", num_links)
-            
-        st.markdown("---") # Horizontal Line Separator
-
-        # --- TIMELINE SECTION ---
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Messages", num_messages, delta="All time")
+        c2.metric("Word Count", words)
+        c3.metric("Media Files", num_media_messages)
+        c4.metric("Links Shared", num_links)
+        
+        # --- TIMELINE (The "Glow" Charts) ---
+        # Why dual timelines: Monthly trends show macro patterns; daily captures bursts.
+        st.markdown("### Activity Timeline")
         col1, col2 = st.columns(2)
         
+        # Helper function to style plots like Linear
+        # Why: Consistent styling keeps charts readable against a dark UI.
+        def linear_plot_style(ax, fig):
+            ax.set_facecolor('#08090A') # Match main background
+            fig.patch.set_facecolor('#08090A')
+            ax.tick_params(axis='x', colors='#8A8F98')
+            ax.tick_params(axis='y', colors='#8A8F98')
+            ax.spines['bottom'].set_color('#22252B')
+            ax.spines['left'].set_color('#22252B')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.grid(color='#22252B', linestyle='--', linewidth=0.5) # Subtle grid
+
         with col1:
-            st.subheader("Monthly Timeline")
             timeline = helper.monthly_timeline(selected_user, df)
             fig, ax = plt.subplots()
-            # Making the chart stylish
-            ax.plot(timeline['time'], timeline['message'], color='#00CC66', linewidth=3)
-            ax.set_facecolor('#0E1117') # Dark background for chart
-            fig.patch.set_facecolor('#0E1117')
-            ax.tick_params(axis='x', colors='white', rotation=90)
-            ax.tick_params(axis='y', colors='white')
-            ax.spines['bottom'].set_color('white')
-            ax.spines['left'].set_color('white')
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
+            # Linear Purple/Blue Gradient feel using a specific hex
+            ax.plot(timeline['time'], timeline['message'], color='#5E6AD2', linewidth=2, marker='o')
+            ax.fill_between(timeline['time'], timeline['message'], color='#5E6AD2', alpha=0.1) # Subtle glow under line
+            linear_plot_style(ax, fig)
+            plt.xticks(rotation='vertical')
             st.pyplot(fig)
 
         with col2:
-            st.subheader("Daily Timeline")
             daily_timeline = helper.daily_timeline(selected_user, df)
             fig, ax = plt.subplots()
-            ax.plot(daily_timeline['only_date'], daily_timeline['message'], color='#ADFF2F', linewidth=3)
-            ax.set_facecolor('#0E1117')
-            fig.patch.set_facecolor('#0E1117')
-            ax.tick_params(axis='x', colors='white', rotation=45)
-            ax.tick_params(axis='y', colors='white')
-            ax.spines['bottom'].set_color('white')
-            ax.spines['left'].set_color('white')
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
+            ax.plot(daily_timeline['only_date'], daily_timeline['message'], color='#5E6AD2', linewidth=2, marker='o')
+            linear_plot_style(ax, fig)
+            plt.xticks(rotation=45)
             st.pyplot(fig)
 
-        # --- ACTIVITY MAP SECTION ---
-        st.markdown("---")
-        st.title("Activity Map")
-        col1, col2 = st.columns(2)
+        # --- ACTIVITY HEATMAP ---
+        # Why: Day/month aggregates highlight behavioral rhythms at a glance.
+        st.markdown("### Engagement Patterns")
+        c1, c2 = st.columns(2)
 
-        with col1:
-            st.subheader("Busiest Day")
+        with c1:
+            st.caption("Weekly Activity")
             busy_day = helper.week_activity_map(selected_user, df)
             fig, ax = plt.subplots()
-            ax.bar(busy_day.index, busy_day.values, color='#9932CC')
-            ax.set_facecolor('#0E1117')
-            fig.patch.set_facecolor('#0E1117')
-            ax.tick_params(axis='x', colors='white', rotation=45)
-            ax.tick_params(axis='y', colors='white')
+            ax.bar(busy_day.index, busy_day.values, color='#C5C9D1') # Muted white bars
+            linear_plot_style(ax, fig)
+            plt.xticks(rotation='vertical')
             st.pyplot(fig)
 
-        with col2:
-            st.subheader("Busiest Month")
+        with c2:
+            st.caption("Monthly Activity")
             busy_month = helper.month_activity_map(selected_user, df)
             fig, ax = plt.subplots()
-            ax.bar(busy_month.index, busy_month.values, color='#FF8C00')
-            ax.set_facecolor('#0E1117')
-            fig.patch.set_facecolor('#0E1117')
-            ax.tick_params(axis='x', colors='white', rotation=45)
-            ax.tick_params(axis='y', colors='white')
+            ax.bar(busy_month.index, busy_month.values, color='#5E6AD2') # Accent color bars
+            linear_plot_style(ax, fig)
+            plt.xticks(rotation='vertical')
             st.pyplot(fig)
 
-        # --- WORD CLOUD SECTION ---
-        st.markdown("---")
-        st.title("Word Cloud")
-        df_wc = helper.create_wordcloud(selected_user, df)
-        fig, ax = plt.subplots()
-        ax.imshow(df_wc)
-        ax.axis("off")
-        # Ensure the plot background matches the theme
-        fig.patch.set_facecolor('#0E1117')
-        st.pyplot(fig)
+        # --- VIBE CHECK ---
+        # Why: Qualitative signals (words/emojis) add context beyond message counts.
+        st.markdown("### Content Analysis")
+        c1, c2 = st.columns([2, 1]) # Make WordCloud wider
 
-        # --- EMOJI & USERS SECTION ---
-        st.markdown("---")
-        col1, col2 = st.columns(2)
+        with c1:
+            st.caption("Word Frequency")
+            df_wc = helper.create_wordcloud(selected_user, df)
+            fig, ax = plt.subplots()
+            ax.imshow(df_wc)
+            ax.axis("off")
+            fig.patch.set_facecolor('#08090A') # Seamless blend
+            st.pyplot(fig)
 
-        with col1:
-            st.subheader("Emoji Analysis")
+        with c2:
+            st.caption("Top Emojis")
             emoji_df = helper.most_common_emoji(selected_user, df)
-            st.dataframe(emoji_df)
-
-        with col2:
-            # Only show "Most Busy Users" if Overall is selected
-            if selected_user == 'Overall':
-                st.subheader("Most Busy Users")
-                x, new_df = helper.most_busy_users(df)
-                fig, ax = plt.subplots()
-                ax.bar(x.index, x.values, color='#FF6347')
-                ax.set_facecolor('#0E1117')
-                fig.patch.set_facecolor('#0E1117')
-                ax.tick_params(axis='x', colors='white', rotation=45)
-                ax.tick_params(axis='y', colors='white')
-                st.pyplot(fig)
+            st.dataframe(emoji_df, use_container_width=True, hide_index=True)
