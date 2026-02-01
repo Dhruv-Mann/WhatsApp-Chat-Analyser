@@ -2,7 +2,7 @@
 
 A comprehensive Data Science project that transforms raw WhatsApp chat exports (`.txt`) into an interactive web dashboard. This tool provides insights into messaging patterns, user activity, and "vibe checks" through sentiment and frequency analysis.
 
-## 🚀 Features (In Progress)
+## 🚀 Features 
 - **Activity Map:** Visualize who is the most active in the chat.
 - **Timeline Analysis:** Track messaging trends over days, months, and years.
 - **Ghost Detector:** Analyze average response times between users.
@@ -23,4 +23,4 @@ A comprehensive Data Science project that transforms raw WhatsApp chat exports (
 ## 🔧 How to Run
 1. Clone this repository:
    ```bash
-   git clone [https://github.com/YOUR_USERNAME/Whatsapp-Chat-Analyzer.git](https://github.com/YOUR_USERNAME/Whatsapp-Chat-Analyzer.git)
+   git clone [https://github.com/Dhruv-Mann/WhatsApp-Chat-Analyser.git](https://github.com/Dhruv-Mann/WhatsApp-Chat-Analyser.git)
