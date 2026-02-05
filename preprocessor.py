@@ -82,7 +82,7 @@ def preprocess(data):
 
         # now here, we split the username and the message - How?---
         # look for the colon. everything after the colon is the text!
-        # Result- Result: ["", "Alice", " Hey how are you?"]
+        # Result: ["", "Alice", " Hey how are you?"]
         # Index [0] = empty (before colon)
         # Index [1] = username ("Alice")
         # Index [2] = message text (" Hey how are you?")
