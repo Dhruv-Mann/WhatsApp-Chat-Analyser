@@ -1,171 +1,213 @@
-"""Helper Functions for WhatsApp Chat Analysis
-
-This module contains pure functions that perform statistical calculations and data transformations.
-Each function follows a consistent pattern: filter by user (if applicable), then compute metrics.
-
-Design Principles:
-- Functions are stateless and side-effect free for predictability
-- User filtering logic is replicated across functions to maintain encapsulation
-- Returns processed data rather than rendering, maintaining separation of concerns
-"""
-
+# This is the library to find URLs in messages
 from urlextract import URLExtract
+
+# This is the library to create word cloud visualizations
 from wordcloud import WordCloud
+
+# For data manipulation
 import pandas as pd
+
+# This is the tool to count frequencies of items
 from collections import Counter
+
+# This is the library to detect and work with emojis
 import emoji
 
-# Initialize URL extractor once at module level for performance
-# Why: Avoid repeated initialization overhead across multiple function calls
+# Created the URLExtract object once at the top for efficiency , and it will be used later
+# to find links in messages
 extract = URLExtract()
 
+# Basically this is a feature and once the user selects one of these options-
+# [Overall / username 1 / username 2] on the app, only then the rest of the calculation
+# block runs. 
 def fetch_stats(selected_user, df):
-    """Calculate core engagement metrics for the selected user or entire chat.
-    
-    Args:
-        selected_user: Username string or 'Overall' for aggregate statistics
-        df: Preprocessed DataFrame with message data
-    
-    Returns:
-        tuple: (message_count, word_count, media_count, link_count)
-    
-    Why this matters: These four metrics provide a comprehensive engagement profile,
-    balancing quantitative (messages/words) with qualitative (media/links) indicators.
-    """
-    # Conditional filtering pattern: reusable across all analysis functions
-    # Why: Enables both group-wide and individual analysis from the same dataset
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
-    # 1. Message count: Simple row count serves as baseline engagement metric
+ 
+    # If filtered to let's say Alice, it counts Alice's messages,
+    # if selected overall, it counts everyone's messages.
     num_messages = df.shape[0]
 
-    # 2. Word count: Measures verbosity and conversation depth
-    # Why split().extend(): More accurate than character count; handles multi-word messages
+
+    # Create an empty list called words.
     words = []
+
+    # Now loop through every message in the 'message' column, and split it into words.
+    # Save these words in 'words' list.
     for message in df['message']:
         words.extend(message.split())
 
-    # 3. Media detection: WhatsApp exports replace media with this specific placeholder text
-    # Why explicit string match: Reliable identifier across all WhatsApp export versions
+
+    # This counts how many messages say "Media omitted\n" - WhatsApp's placeholder for media
     num_media_messages = df[df['message'] == 'Media omitted\n'].shape[0]
 
-    # 4. Link extraction: URLExtract library handles various URL formats robustly
-    # Why external library: Regex patterns for URLs are complex; this handles edge cases
+
+    # Create a new list called 'links'
     links = []
+
+    # Loop through each message, and find all the urls with the help of the URLExtract tool
+    # Save these in 'links'. 
     for message in df['message']:
         links.extend(extract.find_urls(message))
-
+    
+    # Return all the results- (returns 4 numbers)
+    # 1. Total messages
+    # 2. Total words
+    # 3. Media count
+    # 4. Links count
     return num_messages, len(words), num_media_messages, len(links)
 
+
+# This is the feature to calculate the most busy user in the chat.
+# Basically this entire block will check who messaged the most and what percentage of total
+# messages they sent
 def most_busy_users(df):
-    """Identify top contributors in group chats.
+
+    # value_counts() - this counts how many messages each user sent
+    # head() - this gets the top 5 users
+    # Result - A list showing Alice: 150 messages , Bob: 120 , etc.
+    # Store in variable x
+    x = df['user'].value_counts().head()
     
-    Returns both absolute counts and percentage contributions for context.
-    Why: Percentage view normalizes for chat size, making comparisons meaningful.
-    """
-    x = df['user'].value_counts().head()  # Top 5 users by message volume
-    
-    # Percentage calculation provides relative contribution context
-    # Why round to 2 decimals: Balance between precision and readability
+    # This is percentage calculation
+    # df['user'].value_counts() --- Message count per user
+    # / df.shape[0] --- Divide by total messages (to get the ratio)
+    # * 100 --- To convert to percentage
+    # , 2) --- Round to 2 decimal places(e.g., 45.23%)
+    # .reset_index() --- Convert it to a proper table
+    # .rename(columns={'index': 'name', 'user': 'percent'}) --- Rename columns to "name" and "percent"
+    # Example result:
+    #  name	    percent
+
+    #  Alice	45.23
+    #  Bob	    32.10
     df = round((df['user'].value_counts() / df.shape[0]) * 100, 2).reset_index().rename(
         columns={'index': 'name', 'user': 'percent'})
     
+    # Return both the raw counts(x) and the percentage table(df)
     return x, df
 
+# This function creates a word cloud visualization, takes a username and the dataframe
+# What this block does-
+# Takes all messages , removes media placeholders, converts into strings, combines into one text,
+# and generates a visual word cloud where popular words are bigger
 def create_wordcloud(selected_user, df):
-    """Generate visual word frequency representation.
-    
-    Why remove 'Media omitted': This phrase appears frequently but provides no
-    semantic value. Filtering prevents it from dominating the visualization.
-    """
+
+    # Filter by the selected user
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
+    
+    # Here we remove all media messages (because WordCloud can't visualize "Media Omitted")
+    # and create a copy(.copy()) so we don't mess with the original dataframe(df)
+    temp_df = df[df['message'] != 'Media omitted\n'].copy()
 
-    # Data cleaning step: remove noise that would distort word frequency analysis
-    temp_df = df[df['message'] != 'Media omitted\n']
+    # Convert all messages to text format(handles any weird data like NaN)
+    # .astype(str) --- Ensures everything is a string before processing
+    temp_df['message'] = temp_df['message'].astype(str)
 
-    # WordCloud parameters chosen for optimal readability at typical screen resolutions
+    # Create a WordCloud with these settings:
+    # Size: 500x500 pixels
+    # Min font size: 10(smallest words)
+    # Background: white
     wc = WordCloud(width=500, height=500, min_font_size=10, background_color='white')
-    # str.cat() concatenates all messages into single corpus for frequency analysis
+    
+    # .str.cat(sep=" ") --- Combines all messages into ONE giant string with spaces 
+    # between them. Example: "hello world this is fun great chat"
+    # .generate() -- Create the word cloud(bigger words = more frequent)
     df_wc = wc.generate(temp_df['message'].str.cat(sep=" "))
+
+    # Returns the word cloud image to app.py for display
     return df_wc
 
+# Define a function to find the most common emojis
 def most_common_emoji(selected_user, df):
-    """Extract and rank emoji usage patterns.
-    
-    Why emojis matter: They convey emotional tone and can reveal sentiment patterns
-    that raw text analysis might miss.
-    """
+
+    # Filter by selected user
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
-    # Character-level iteration to identify emojis using official emoji dataset
-    # Why list comprehension: Efficient filtering of Unicode emoji characters
+    
+    # Creates an empty list called 'emojis'
     emojis = []
+
+    # Loop through each message, extract every character that is an emoji(using the official emoji dataset)
+    # Store all the emojis in list
+    # Example: ['😂', '😂', '❤️', '😂', '😍']
     for message in df['message']:
         emojis.extend([c for c in message if c in emoji.EMOJI_DATA])
 
-    # Counter provides frequency ranking automatically
+
+    # Counter(emojis) --- This counts the frequency of each emoji
+    # .most_common() --- Rank by frequency(most used first)
     emoji_df = pd.DataFrame(Counter(emojis).most_common(len(Counter(emojis))))
-    # Descriptive column names improve DataFrame readability for end users
+
+    # Rename the columns to human - readable names: "Emoji" and "Count"
     emoji_df = emoji_df.rename(columns={0: 'Emoji', 1: 'Count'}) 
     
+
+    # Returns the ranked emoji table to app.py
     return emoji_df
 
+# This is a function to compute the message counts per month(month-wise timeline)
 def monthly_timeline(selected_user, df):
-    """Aggregate messages by month for trend analysis.
-    
-    Why group by year AND month: Prevents collapsing data from same months in different years.
-    The month_num field ensures proper chronological ordering.
-    """
+
+    # Filter by selected user
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
-    # Multi-level grouping maintains temporal hierarchy
+    
+    # Group the messages by year + month and counts how many messages are in each group
+    # turns the result back to clean table
     timeline = df.groupby(['year', 'month_num', 'month']).count()['message'].reset_index()
-
-    # Construct human-readable time labels for x-axis
-    # Format: "January-2024" provides clear temporal context
+     
+    # Creating a list called time
+    # Example: "January-2024", "February-2024".
+    # These labels are easier to show on charts.
     time = []
     for i in range(timeline.shape[0]):
         time.append(timeline['month'][i] + "-" + str(timeline['year'][i]))
     
+    # Adds the time list as a new column in the timeline dataframe
+    # Now the dataframe has a clean x-axis label for plotting
     timeline['time'] = time
+
+    # Returns the final monthly timeline to app.py
     return timeline
 
+
+# Function defined to compute message counts per day
 def daily_timeline(selected_user, df):
-    """Create day-by-day message count timeline.
-    
-    Why daily granularity: Reveals micro-patterns like conversation spikes that
-    monthly aggregation would smooth out.
-    """
+
+    # Filter by selected user
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
 
-    # Group by date (time component stripped) for daily totals
+    # Groups by only_date (date without time).
+    # Counts how many messages happened each day.
+    # .reset_index() --- converts the grouped result into a clean dataframe
     daily_timeline = df.groupby('only_date').count()['message'].reset_index()
+
+    #return the daily timeline to app.py
     return daily_timeline
 
+# Function defined to compute message activity by day of the week
 def week_activity_map(selected_user, df):
-    """Analyze which days of the week are most active.
-    
-    Why: Reveals weekly behavioral patterns (e.g., weekday vs weekend activity).
-    """
+
+    #Filter by selected user
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
-    # value_counts() naturally ranks days by message frequency
+    
+    # ['day_name'] --- this is a column like - Monday, Tuesday, Wednesday etc.
+    # .value_counts() --- counts how many messages happened on each day
+    # returns a series like -- Monday: 120, Tuesday: 95, etc.
     return df['day_name'].value_counts()
 
+# Function defined to compute message activity by month name
 def month_activity_map(selected_user, df):
-    """Identify seasonally busy months across all years.
-    
-    Why aggregate across years: Reveals recurring seasonal patterns
-    (e.g., holiday period activity spikes).
-    """
+
+    # Filter by selected user
     if selected_user != 'Overall':
         df = df[df['user'] == selected_user]
-
-    # Month name grouping collapses all instances of "January", "February", etc.
+    
+    # month column contains names like January, February, etc
+    # .value_counts() --- counts messages per month.
+    # returns a series like: January: 320, February: 210, etc
     return df['month'].value_counts()
